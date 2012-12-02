@@ -1,0 +1,41 @@
+<?php
+require '../Daemon.php';
+require '../I_JobQueue.php';
+require '../Worker.php';
+
+class Worker_Demo extends Worker
+{
+    public function pre()
+    {
+        // TODO: Implement pre() method.
+    }
+}
+
+class JobQueue_Demo implements I_JobQueue
+{
+    /**
+     * @return array(file, callback, param_arr)
+     */
+    public function pop()
+    {
+        // TODO: Implement pop() method.
+    }
+
+    /**
+     * @return array(file, callback, param_arr)
+     */
+    public function bpop()
+    {
+        // TODO: Implement bpop() method.
+    }
+
+    public function push($file, $callback, $param_arr)
+    {
+        // TODO: Implement push() method.
+    }
+}
+
+$worker = new Worker_Demo();
+$queue = new JobQueue_Demo();
+
+Daemon::getInstance($queue, $worker)->run();
