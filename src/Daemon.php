@@ -65,19 +65,31 @@ class Daemon
      * @param int $numOfMaxProcess
      * @param int $fetchMode
      * @param int $interval ms
+     * @param string $lockFile
      * @return Daemon
      */
     public static function getInstance(I_JobQueue $jobQueue,
                                        Worker $worker,
                                        $numOfMaxProcess = 10,
                                        $fetchMode = self::QUEUE_FETCH_COMMON,
-                                       $interval = 100000
+                                       $interval = 100000,
+                                       $lockFile = '/tmp/slime_multijob_deamon.lock'
     )
     {
-        if (!self::$instance) {
-            self::$instance = new self($jobQueue, $worker, $numOfMaxProcess, $fetchMode, $interval);
+        if (!file_exists($lockFile)) {
+            if (!touch($lockFile)) {
+                exit("create lock file failed![$lockFile]");
+            }
         }
-        return self::$instance;
+        $fHandle = fopen($lockFile, 'r');
+        if (flock($fHandle, LOCK_EX|LOCK_NB)) {
+            if (!self::$instance) {
+                self::$instance = new self($jobQueue, $worker, $numOfMaxProcess, $fetchMode, $interval);
+            }
+            return self::$instance;
+        } else {
+            exit('daemon process is running');
+        }
     }
 
     public function run()
