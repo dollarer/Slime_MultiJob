@@ -1,4 +1,6 @@
 <?php
+namespace Slime\MultiJob;
+
 class Daemon
 {
     const QUEUE_FETCH_COMMON = 0;
@@ -8,11 +10,6 @@ class Daemon
      * @var I_JobQueue
      */
     private $jobQueue;
-
-    /**
-     * @var I_Worker
-     */
-    private $worker;
 
     /**
      * @var int
@@ -39,13 +36,12 @@ class Daemon
      */
     private static $instance;
 
-    private function __construct(I_JobQueue $jobQueue,
-                                 I_Worker $worker,
-                                 $numOfMaxProcess,
-                                 $fetchMode,
-                                 $interval
-    )
-    {
+    private function __construct(
+        I_JobQueue $jobQueue,
+        $numOfMaxProcess,
+        $fetchMode,
+        $interval
+    ) {
         if (
             !is_int($numOfMaxProcess) ||
             $numOfMaxProcess < 1 ||
@@ -57,43 +53,38 @@ class Daemon
             exit('ERROR PARAM');
         }
         $this->jobQueue = $jobQueue;
-        $this->worker = $worker;
         $this->numOfMaxWorkers = $numOfMaxProcess;
         $this->fetchMode = $fetchMode;
         $this->interval = $interval;
         $this->numOfWorkers = 0;
-
-        declare(ticks=1);
-        pcntl_signal(SIGCHLD, array($this, 'sig_handler'));
     }
+
     private function __clone(){}
 
     /**
      * @param I_JobQueue $jobQueue
-     * @param I_Worker $worker
      * @param int $numOfMaxProcess
      * @param int $fetchMode
      * @param int $interval ms
      * @param string $lockFile
      * @return Daemon
      */
-    public static function getInstance(I_JobQueue $jobQueue,
-                                       I_Worker $worker,
-                                       $numOfMaxProcess = 10,
-                                       $fetchMode = self::QUEUE_FETCH_COMMON,
-                                       $interval = 100000,
-                                       $lockFile = '/tmp/slime_multijob_deamon.lock'
-    )
-    {
+    public static function getInstance(
+        I_JobQueue $jobQueue,
+        $numOfMaxProcess = 10,
+        $fetchMode = self::QUEUE_FETCH_COMMON,
+        $interval = 100000,
+        $lockFile = '/tmp/slime_multijob_deamon.lock'
+    ) {
         if (!file_exists($lockFile)) {
             if (!touch($lockFile)) {
                 exit("create lock file failed![$lockFile]");
             }
         }
         $fHandle = fopen($lockFile, 'r');
-        if (flock($fHandle, LOCK_EX|LOCK_NB)) {
+        if (flock($fHandle, LOCK_EX | LOCK_NB)) {
             if (!self::$instance) {
-                self::$instance = new self($jobQueue, $worker, $numOfMaxProcess, $fetchMode, $interval);
+                self::$instance = new self($jobQueue, $numOfMaxProcess, $fetchMode, $interval);
             }
             return self::$instance;
         } else {
@@ -101,7 +92,7 @@ class Daemon
         }
     }
 
-    public function sig_handler($signo)
+    public function sig_handler($sigNo)
     {
         pcntl_wait($status);
         $this->numOfWorkers--;
@@ -109,31 +100,47 @@ class Daemon
 
     public function run()
     {
+        declare(ticks = 1) ;
+        pcntl_signal(SIGCHLD, array($this, 'sig_handler'));
+
         while (true) {
-            if ($this->numOfWorkers<$this->numOfMaxWorkers) {
-                if ($this->fetchMode===self::QUEUE_FETCH_COMMON) {
-                    list($file, $callback, $param_arr) = $this->jobQueue->pop();
-                } else {
-                    list($file, $callback, $param_arr) = $this->jobQueue->bpop();
-                }
-                $this->numOfWorkers++;
-                $pid = pcntl_fork();
-                if ($pid === -1) {
-                    exit('ERROR FORK');
-                } elseif ($pid) {
-                    ;
-                } else {
-                    $this->worker->pre();
-                    if (!$this->worker->run($file, $callback, $param_arr)) {
-                        $this->jobQueue->push($file, $callback, $param_arr);
-                    }
-                    exit();
-                }
-                if ($this->fetchMode==self::QUEUE_FETCH_COMMON) {
-                    usleep($this->interval);
-                }
-            } else {
+            //Check if beyond limit
+            if ($this->numOfWorkers > $this->numOfMaxWorkers) {
                 usleep($this->interval);
+                continue;
+            }
+
+            //Get job
+            try {
+                if ($this->fetchMode === self::QUEUE_FETCH_BLOCK) {
+                    $job = Job::factoryFromString($this->jobQueue->bpop());
+                } else {
+                    $jobString = $this->jobQueue->pop();
+                    if ($jobString!=='') {
+                        $job = Job::factoryFromString($jobString);
+                    } else {
+                        usleep($this->interval);
+                        continue;
+                    }
+                }
+            } catch (Exception_JobCreate $e) {
+                //@todo warning
+                usleep($this->interval);
+                continue;
+            }
+
+            //Fork a worker process and do job
+            $this->numOfWorkers++;
+            $pid = pcntl_fork();
+            if ($pid === -1) {
+                exit('ERROR FORK');
+            } elseif ($pid) {
+                ;
+            } else {
+                if (!$job->run()) {
+                    $this->jobQueue->push((string)$job);
+                }
+                exit();
             }
         }
     }

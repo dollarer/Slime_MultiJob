@@ -1,15 +1,21 @@
 <?php
+namespace Slime\MultiJob;
+
 interface I_JobQueue
 {
     /**
-     * @return array(file, callback, param_arr)
+     * @return string
      */
     public function pop();
 
     /**
-     * @return array(file, callback, param_arr)
+     * @return string
      */
     public function bpop();
 
-    public function push($file, $callback, $param_arr);
+    /**
+     * @param $string
+     * @return bool
+     */
+    public function push($string);
 }
