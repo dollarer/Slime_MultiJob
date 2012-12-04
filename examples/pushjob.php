@@ -1,5 +1,5 @@
 <?php
-require '../src/Job.php';
+require '../src/Slime/MultiJob/Job.php';
 
 $file = dirname(__FILE__) . '/JobQueue.php';
 $jobQueue = new JobQueue();
