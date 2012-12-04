@@ -10,14 +10,19 @@ class Daemon
     private $jobQueue;
 
     /**
-     * @var Worker
+     * @var I_Worker
      */
     private $worker;
 
     /**
      * @var int
      */
-    private $numOfMaxProcess;
+    private $numOfWorkers;
+
+    /**
+     * @var int
+     */
+    private $numOfMaxWorkers;
 
     /**
      * @var int
@@ -35,7 +40,7 @@ class Daemon
     private static $instance;
 
     private function __construct(I_JobQueue $jobQueue,
-                                 Worker $worker,
+                                 I_Worker $worker,
                                  $numOfMaxProcess,
                                  $fetchMode,
                                  $interval
@@ -53,9 +58,13 @@ class Daemon
         }
         $this->jobQueue = $jobQueue;
         $this->worker = $worker;
-        $this->numOfMaxProcess = $numOfMaxProcess;
+        $this->numOfMaxWorkers = $numOfMaxProcess;
         $this->fetchMode = $fetchMode;
         $this->interval = $interval;
+        $this->numOfWorkers = 0;
+
+        declare(ticks=1);
+        pcntl_signal(SIGCHLD, array($this, 'sig_handler'));
     }
     private function __clone(){}
 
@@ -92,27 +101,38 @@ class Daemon
         }
     }
 
+    public function sig_handler($signo)
+    {
+        pcntl_wait($status);
+        $this->numOfWorkers--;
+    }
+
     public function run()
     {
         while (true) {
-            if ($this->fetchMode===self::QUEUE_FETCH_COMMON) {
-                list($file, $callback, $param_arr) = $this->jobQueue->pop();
-            } else {
-                list($file, $callback, $param_arr) = $this->jobQueue->bpop();
-            }
-            $pid = pcntl_fork();
-            if ($pid === -1) {
-                exit('ERROR FORK');
-            } elseif ($pid) {
-                ;
-            } else {
-                $this->worker->pre();
-                if (!$this->worker->run($file, $callback, $param_arr)) {
-                    $this->jobQueue->push($file, $callback, $param_arr);
+            if ($this->numOfWorkers<$this->numOfMaxWorkers) {
+                if ($this->fetchMode===self::QUEUE_FETCH_COMMON) {
+                    list($file, $callback, $param_arr) = $this->jobQueue->pop();
+                } else {
+                    list($file, $callback, $param_arr) = $this->jobQueue->bpop();
                 }
-                exit();
-            }
-            if ($this->fetchMode==self::QUEUE_FETCH_COMMON) {
+                $this->numOfWorkers++;
+                $pid = pcntl_fork();
+                if ($pid === -1) {
+                    exit('ERROR FORK');
+                } elseif ($pid) {
+                    ;
+                } else {
+                    $this->worker->pre();
+                    if (!$this->worker->run($file, $callback, $param_arr)) {
+                        $this->jobQueue->push($file, $callback, $param_arr);
+                    }
+                    exit();
+                }
+                if ($this->fetchMode==self::QUEUE_FETCH_COMMON) {
+                    usleep($this->interval);
+                }
+            } else {
                 usleep($this->interval);
             }
         }

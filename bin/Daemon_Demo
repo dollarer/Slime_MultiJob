@@ -2,7 +2,7 @@
 <?php
 require '../src/Daemon.php';
 require '../src/I_JobQueue.php';
-require '../src/Worker.php';
+require '../src/I_Worker.php';
 
 class Worker_Demo extends Worker
 {
