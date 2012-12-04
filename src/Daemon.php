@@ -70,7 +70,7 @@ class Daemon
 
     /**
      * @param I_JobQueue $jobQueue
-     * @param Worker $worker
+     * @param I_Worker $worker
      * @param int $numOfMaxProcess
      * @param int $fetchMode
      * @param int $interval ms
@@ -78,7 +78,7 @@ class Daemon
      * @return Daemon
      */
     public static function getInstance(I_JobQueue $jobQueue,
-                                       Worker $worker,
+                                       I_Worker $worker,
                                        $numOfMaxProcess = 10,
                                        $fetchMode = self::QUEUE_FETCH_COMMON,
                                        $interval = 100000,
