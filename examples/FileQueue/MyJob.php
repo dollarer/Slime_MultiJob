@@ -6,15 +6,20 @@ require_once './JobQueue.php';
 class Job
 {
     public static $resultFile = '/tmp/Slime_MultiJob_queue.result';
+    public static $resultLockFile = '/tmp/Slime_MultiJob_queue.result.lock';
 
     public static function add($a, $b)
     {
         sleep(3);
         $rs = $a + $b;
+        $f = fopen(self::$resultLockFile, 'w');
+        flock($f, LOCK_EX);
         @file_put_contents(
             self::$resultFile,
             file_get_contents(self::$resultFile) . "$a + $b=$rs\n"
         );
+        flock($f, LOCK_UN);
+        fclose($f);
         return true;
     }
 
@@ -22,10 +27,14 @@ class Job
     {
         sleep(3);
         $rs = $a * $b;
+        $f = fopen(self::$resultLockFile, 'w');
+        flock($f, LOCK_EX);
         @file_put_contents(
             self::$resultFile,
             file_get_contents(self::$resultFile) . "$a * $b=$rs\n"
         );
+        flock($f, LOCK_UN);
+        fclose($f);
         return true;
     }
 

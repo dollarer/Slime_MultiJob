@@ -137,7 +137,6 @@ class Daemon
                 fprintf(STDERR, "Process fork error\n");
                 exit();
             } elseif ($pid) {
-                ;
             } else {
                 if (!$job->run()) {
                     fprintf(STDOUT, "job run failed[%s]\n", $job);

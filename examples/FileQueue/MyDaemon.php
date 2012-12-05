@@ -6,4 +6,5 @@ require '../../src/Slime/MultiJob/Job.php';
 require '../../src/Slime/MultiJob/I_JobQueue.php';
 require './JobQueue.php';
 
-Daemon::getInstance(new JobQueue())->run();
+$numOfMaxProcess = isset($argv[1]) && $argv[1]>0 ? (int)$argv[1] : 10;
+Daemon::getInstance(new JobQueue(), $numOfMaxProcess)->run();
