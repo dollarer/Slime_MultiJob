@@ -34,6 +34,9 @@ class JobQueue implements I_JobQueue
         }
 
         $arr = include $this->queueFile;
+        if (empty($arr) || !is_array($arr)) {
+            return '';
+        }
         $data = array_pop($arr);
         $str = $this->parse($arr);
         file_put_contents($this->queueFile, $str);
@@ -51,7 +54,13 @@ class JobQueue implements I_JobQueue
         $f = fopen($this->queueLock, 'w');
         flock($f, LOCK_EX);
 
-        $arr = include $this->queueFile;
+        while (true) {
+            $arr = include $this->queueFile;
+            if (!empty($arr) && is_array($arr)) {
+                break;
+            }
+            usleep(100000);
+        }
         $data = array_pop($arr);
         $str = $this->parse($arr);
         file_put_contents($this->queueFile, $str);
@@ -71,7 +80,10 @@ class JobQueue implements I_JobQueue
         flock($f, LOCK_EX);
 
         $arr = include $this->queueFile;
-        array_push($arr, $str);
+        if (empty($arr) || !is_array($arr)) {
+            $arr = array();
+        }
+        array_push($arr, $string);
         $str = $this->parse($arr);
         file_put_contents($this->queueFile, $str);
 
@@ -84,9 +96,7 @@ class JobQueue implements I_JobQueue
     {
         $str = var_export($arr, true);
         return <<<PHP
-<?php
-return $str;
-?>
+<?php return $str; ?>
 PHP;
     }
 }

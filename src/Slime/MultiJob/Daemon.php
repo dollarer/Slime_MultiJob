@@ -45,12 +45,12 @@ class Daemon
         if (
             !is_int($numOfMaxProcess) ||
             $numOfMaxProcess < 1 ||
-            $fetchMode !== self::QUEUE_FETCH_COMMON ||
-            $fetchMode !== self::QUEUE_FETCH_BLOCK ||
+            ($fetchMode !== self::QUEUE_FETCH_COMMON && $fetchMode !== self::QUEUE_FETCH_BLOCK) ||
             !is_int($interval) ||
             $interval <= 0
         ) {
-            exit('ERROR PARAM');
+            fprintf(STDERR, "Daemon construct param error\n");
+            exit();
         }
         $this->jobQueue = $jobQueue;
         $this->numOfMaxWorkers = $numOfMaxProcess;
@@ -95,15 +95,15 @@ class Daemon
 
     public function sig_handler($sigNo)
     {
-        pcntl_wait($status);
+        $pid = pcntl_waitpid(-1, $status, WNOHANG);
         $this->numOfWorkers--;
+        fprintf(STDOUT, "Worker %d has finished[running process%d]\n", $pid, $this->numOfWorkers, $sigNo);
     }
 
     public function run()
     {
-        declare(ticks = 1) ;
         pcntl_signal(SIGCHLD, array($this, 'sig_handler'));
-
+        declare(ticks = 1);
         while (true) {
             //Check if beyond limit
             if ($this->numOfWorkers > $this->numOfMaxWorkers) {

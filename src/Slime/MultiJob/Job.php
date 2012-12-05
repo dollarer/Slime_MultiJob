@@ -21,7 +21,7 @@ final class Job
 
     public static function factoryFromString($string)
     {
-        $arr = @json_decode($string);
+        $arr = @json_decode($string, true);
         if (!$arr || !isset($arr['file']) || !isset($arr['callback']) || !isset($arr['param_arr'])) {
             throw new Exception_JobCreate($string);
         }
@@ -31,10 +31,10 @@ final class Job
     public function __toString()
     {
         return json_encode(array(
-            'file' => $this->file,
-            'callback' => $this->callback,
-            'param_arr' => $this->param_arr
-        ));
+                'file' => $this->file,
+                'callback' => $this->callback,
+                'param_arr' => $this->param_arr
+            ));
     }
 
     public function run()
