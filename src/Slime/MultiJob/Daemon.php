@@ -95,9 +95,11 @@ class Daemon
 
     public function sig_handler($sigNo)
     {
-        $pid = pcntl_waitpid(-1, $status, WNOHANG);
-        $this->numOfWorkers--;
-        fprintf(STDOUT, "Worker %d has finished[running process%d]\n", $pid, $this->numOfWorkers, $sigNo);
+        while (($pid = pcntl_wait($status, WNOHANG|WUNTRACED)) > 0) {
+            $this->numOfWorkers--;
+            fprintf(STDOUT, "Worker %d has finished[running process %d left]\n", $pid, $this->numOfWorkers);
+            //check status pcntl_wifexited($status);
+        }
     }
 
     public function run()
