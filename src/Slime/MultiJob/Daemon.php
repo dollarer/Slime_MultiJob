@@ -78,7 +78,8 @@ class Daemon
     ) {
         if (!file_exists($lockFile)) {
             if (!touch($lockFile)) {
-                exit("create lock file failed![$lockFile]");
+                fprintf(STDERR, "Create lock file failed![%s]\n", $lockFile);
+                exit();
             }
         }
         $fHandle = fopen($lockFile, 'r');
@@ -88,7 +89,7 @@ class Daemon
             }
             return self::$instance;
         } else {
-            exit('daemon process is running');
+            exit();
         }
     }
 
@@ -124,7 +125,7 @@ class Daemon
                     }
                 }
             } catch (Exception_JobCreate $e) {
-                //@todo warning
+                fprintf(STDOUT, "Job create error[%s]\n", $e->getMessage());
                 usleep($this->interval);
                 continue;
             }
@@ -133,11 +134,13 @@ class Daemon
             $this->numOfWorkers++;
             $pid = pcntl_fork();
             if ($pid === -1) {
-                exit('ERROR FORK');
+                fprintf(STDERR, "Process fork error\n");
+                exit();
             } elseif ($pid) {
                 ;
             } else {
                 if (!$job->run()) {
+                    fprintf(STDOUT, "job run failed[%s]\n", $job);
                     $this->jobQueue->push((string)$job);
                 }
                 exit();
